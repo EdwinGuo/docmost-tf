@@ -205,7 +205,10 @@ func (c *DocmostClient) CreateSpace(name, slug, description string) (*Space, err
 
 	space, err := unmarshalResource[Space](respBody)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse create space response: %w", err)
+		return nil, fmt.Errorf("failed to parse create space response (raw: %s): %w", string(respBody), err)
+	}
+	if space.ID == "" {
+		return nil, fmt.Errorf("create space returned empty ID (raw response: %s)", string(respBody))
 	}
 	return space, nil
 }
@@ -336,7 +339,10 @@ func (c *DocmostClient) CreateGroup(name, description string) (*Group, error) {
 
 	group, err := unmarshalResource[Group](respBody)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse create group response: %w", err)
+		return nil, fmt.Errorf("failed to parse create group response (raw: %s): %w", string(respBody), err)
+	}
+	if group.ID == "" {
+		return nil, fmt.Errorf("create group returned empty ID (raw response: %s)", string(respBody))
 	}
 	return group, nil
 }
