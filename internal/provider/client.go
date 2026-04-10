@@ -213,20 +213,50 @@ func (c *DocmostClient) CreateSpace(name, slug, description string) (*Space, err
 	return space, nil
 }
 
-// GetSpaceBySlug retrieves space info by slug.
+// GetSpaceBySlug retrieves space info by searching all spaces for a matching slug.
 func (c *DocmostClient) GetSpaceBySlug(slug string) (*Space, error) {
-	body := map[string]string{"slug": slug}
-
-	respBody, err := c.DoRequest("/api/spaces/info", body)
+	// List all spaces and find the one with the matching slug.
+	respBody, err := c.DoRequest("/api/spaces", map[string]interface{}{})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to list spaces: %w", err)
 	}
 
-	space, err := unmarshalResource[Space](respBody)
+	// Try to extract an array of spaces from the response.
+	// The response might be a direct array or wrapped (e.g. {"items": [...]}).
+	spaces, err := extractSpaceList(respBody)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse space info response: %w", err)
+		return nil, fmt.Errorf("failed to parse spaces list (raw: %s): %w", string(respBody), err)
 	}
-	return space, nil
+
+	for _, s := range spaces {
+		if strings.EqualFold(s.Slug, slug) {
+			return &s, nil
+		}
+	}
+
+	return nil, fmt.Errorf("space with slug %q not found", slug)
+}
+
+// extractSpaceList tries to extract a list of Space from a JSON response.
+func extractSpaceList(data []byte) ([]Space, error) {
+	// Try direct array.
+	var direct []Space
+	if err := json.Unmarshal(data, &direct); err == nil && len(direct) > 0 {
+		return direct, nil
+	}
+
+	// Try wrapped in a key (e.g. {"items": [...]} or {"spaces": [...]}).
+	var wrapper map[string]json.RawMessage
+	if err := json.Unmarshal(data, &wrapper); err == nil {
+		for _, raw := range wrapper {
+			var nested []Space
+			if err := json.Unmarshal(raw, &nested); err == nil && len(nested) > 0 {
+				return nested, nil
+			}
+		}
+	}
+
+	return nil, fmt.Errorf("could not extract space list from response")
 }
 
 // GetSpace retrieves space info by ID.
