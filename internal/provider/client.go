@@ -265,16 +265,11 @@ func findSpaceArray(data []byte, depth int) ([]Space, error) {
 	for _, raw := range wrapper {
 		// Try as array of spaces.
 		var spaces []Space
-		if err := json.Unmarshal(raw, &spaces); err == nil {
-			if len(spaces) == 0 {
-				return spaces, nil
-			}
-			if spaces[0].ID != "" {
-				return spaces, nil
-			}
+		if err := json.Unmarshal(raw, &spaces); err == nil && len(spaces) > 0 && spaces[0].ID != "" {
+			return spaces, nil
 		}
 		// Try going deeper.
-		if result, err := findSpaceArray(raw, depth-1); err == nil {
+		if result, err := findSpaceArray(raw, depth-1); err == nil && len(result) > 0 {
 			return result, nil
 		}
 	}
