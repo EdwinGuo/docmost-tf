@@ -1,7 +1,7 @@
 terraform {
   required_providers {
     docmost = {
-      source = "registry.terraform.io/gokite/docmost"
+      source = "registry.terraform.io/edwinguo/docmost"
     }
   }
 }

@@ -1,4 +1,4 @@
-module github.com/gokite/terraform-provider-docmost
+module github.com/edwinguo/terraform-provider-docmost
 
 go 1.22.0
 

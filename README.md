@@ -16,7 +16,7 @@ A Terraform provider for managing [Docmost](https://docmost.com) workspaces as c
 terraform {
   required_providers {
     docmost = {
-      source = "gokite/docmost"
+      source = "edwinguo/docmost"
     }
   }
 }

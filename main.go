@@ -5,7 +5,7 @@ import (
 	"flag"
 	"log"
 
-	"github.com/gokite/terraform-provider-docmost/internal/provider"
+	"github.com/edwinguo/terraform-provider-docmost/internal/provider"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 )
 
@@ -17,7 +17,7 @@ func main() {
 	flag.Parse()
 
 	opts := providerserver.ServeOpts{
-		Address: "registry.terraform.io/gokite/docmost",
+		Address: "registry.terraform.io/edwinguo/docmost",
 		Debug:   debug,
 	}
 

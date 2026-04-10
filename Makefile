@@ -1,5 +1,5 @@
 HOSTNAME=registry.terraform.io
-NAMESPACE=gokite
+NAMESPACE=edwinguo
 NAME=docmost
 BINARY=terraform-provider-${NAME}
 VERSION=0.1.0
