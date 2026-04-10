@@ -456,9 +456,9 @@ func (c *DocmostClient) FindWorkspaceUserByEmail(email string) (*WorkspaceUser, 
 			return nil, err
 		}
 
-		var paginated CursorPaginatedResponse
-		if err := json.Unmarshal(respBody, &paginated); err != nil {
-			return nil, fmt.Errorf("failed to parse workspace members response: %w", err)
+		paginated, err := extractPaginatedResponse(respBody)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse workspace members response (raw: %s): %w", string(respBody), err)
 		}
 
 		for _, raw := range paginated.Items {
@@ -478,6 +478,39 @@ func (c *DocmostClient) FindWorkspaceUserByEmail(email string) (*WorkspaceUser, 
 	}
 
 	return nil, fmt.Errorf("user with email %q not found in workspace", email)
+}
+
+// extractPaginatedResponse tries to unmarshal a paginated response directly,
+// then falls back to looking for a nested object containing "items".
+func extractPaginatedResponse(data []byte) (*CursorPaginatedResponse, error) {
+	// Try direct unmarshal first.
+	var direct CursorPaginatedResponse
+	if err := json.Unmarshal(data, &direct); err == nil && len(direct.Items) > 0 {
+		return &direct, nil
+	}
+
+	// Try unwrapping from a nested key (e.g. {"members": {"items": [...]}}).
+	var wrapper map[string]json.RawMessage
+	if err := json.Unmarshal(data, &wrapper); err == nil {
+		for _, raw := range wrapper {
+			var nested CursorPaginatedResponse
+			if err := json.Unmarshal(raw, &nested); err == nil && len(nested.Items) > 0 {
+				return &nested, nil
+			}
+			// Also try if the value is an array directly (e.g. {"members": [...]}).
+			var items []json.RawMessage
+			if err := json.Unmarshal(raw, &items); err == nil && len(items) > 0 {
+				return &CursorPaginatedResponse{Items: items}, nil
+			}
+		}
+	}
+
+	// Fall back to direct unmarshal regardless of items count.
+	var fallback CursorPaginatedResponse
+	if err := json.Unmarshal(data, &fallback); err != nil {
+		return nil, err
+	}
+	return &fallback, nil
 }
 
 // IsSpaceMember checks whether a user or group is still a member of a space
