@@ -238,6 +238,7 @@ func (c *DocmostClient) GetSpaceBySlug(slug string) (*Space, error) {
 }
 
 // extractSpaceList tries to extract a list of Space from a JSON response.
+// Handles structures like {"data": {"items": [...]}} or {"items": [...]} or [...].
 func extractSpaceList(data []byte) ([]Space, error) {
 	// Try direct array.
 	var direct []Space
@@ -245,14 +246,34 @@ func extractSpaceList(data []byte) ([]Space, error) {
 		return direct, nil
 	}
 
-	// Try wrapped in a key (e.g. {"items": [...]} or {"spaces": [...]}).
+	// Recursively try to find an array of spaces in nested objects (up to 3 levels deep).
+	return findSpaceArray(data, 3)
+}
+
+func findSpaceArray(data []byte, depth int) ([]Space, error) {
+	if depth <= 0 {
+		return nil, fmt.Errorf("could not extract space list from response")
+	}
+
 	var wrapper map[string]json.RawMessage
-	if err := json.Unmarshal(data, &wrapper); err == nil {
-		for _, raw := range wrapper {
-			var nested []Space
-			if err := json.Unmarshal(raw, &nested); err == nil && len(nested) > 0 {
-				return nested, nil
+	if err := json.Unmarshal(data, &wrapper); err != nil {
+		return nil, fmt.Errorf("could not extract space list from response")
+	}
+
+	for _, raw := range wrapper {
+		// Try as array of spaces.
+		var spaces []Space
+		if err := json.Unmarshal(raw, &spaces); err == nil {
+			if len(spaces) == 0 {
+				return spaces, nil
 			}
+			if spaces[0].ID != "" {
+				return spaces, nil
+			}
+		}
+		// Try going deeper.
+		if result, err := findSpaceArray(raw, depth-1); err == nil {
+			return result, nil
 		}
 	}
 
