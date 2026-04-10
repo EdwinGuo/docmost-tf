@@ -124,6 +124,58 @@ func (c *DocmostClient) DoRequest(path string, body interface{}) ([]byte, error)
 	return respBody, nil
 }
 
+// unmarshalResource tries to unmarshal a JSON response directly into T.
+// If the top-level object has no matching fields (e.g. the response wraps the
+// resource in a nested key), it tries each top-level value until one succeeds
+// with a populated ID field.
+func unmarshalResource[T any](data []byte) (*T, error) {
+	// Try direct unmarshal first.
+	var direct T
+	if err := json.Unmarshal(data, &direct); err == nil {
+		if hasID(direct) {
+			return &direct, nil
+		}
+	}
+
+	// Try unwrapping from a nested key.
+	var wrapper map[string]json.RawMessage
+	if err := json.Unmarshal(data, &wrapper); err == nil {
+		for _, raw := range wrapper {
+			var nested T
+			if err := json.Unmarshal(raw, &nested); err == nil {
+				if hasID(nested) {
+					return &nested, nil
+				}
+			}
+		}
+	}
+
+	// Fall back to direct unmarshal regardless of ID.
+	var fallback T
+	if err := json.Unmarshal(data, &fallback); err != nil {
+		return nil, err
+	}
+	return &fallback, nil
+}
+
+// hasID checks if a struct has a non-empty "id" field via JSON re-encoding.
+func hasID(v any) bool {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return false
+	}
+	var m map[string]interface{}
+	if err := json.Unmarshal(b, &m); err != nil {
+		return false
+	}
+	id, ok := m["id"]
+	if !ok {
+		return false
+	}
+	s, ok := id.(string)
+	return ok && s != ""
+}
+
 // Space represents a Docmost space.
 type Space struct {
 	ID                   string `json:"id"`
@@ -151,11 +203,11 @@ func (c *DocmostClient) CreateSpace(name, slug, description string) (*Space, err
 		return nil, err
 	}
 
-	var space Space
-	if err := json.Unmarshal(respBody, &space); err != nil {
+	space, err := unmarshalResource[Space](respBody)
+	if err != nil {
 		return nil, fmt.Errorf("failed to parse create space response: %w", err)
 	}
-	return &space, nil
+	return space, nil
 }
 
 // GetSpace retrieves space info by ID.
@@ -167,11 +219,11 @@ func (c *DocmostClient) GetSpace(spaceID string) (*Space, error) {
 		return nil, err
 	}
 
-	var space Space
-	if err := json.Unmarshal(respBody, &space); err != nil {
+	space, err := unmarshalResource[Space](respBody)
+	if err != nil {
 		return nil, fmt.Errorf("failed to parse space info response: %w", err)
 	}
-	return &space, nil
+	return space, nil
 }
 
 // UpdateSpace updates an existing space.
@@ -183,11 +235,11 @@ func (c *DocmostClient) UpdateSpace(spaceID string, updates map[string]interface
 		return nil, err
 	}
 
-	var space Space
-	if err := json.Unmarshal(respBody, &space); err != nil {
+	space, err := unmarshalResource[Space](respBody)
+	if err != nil {
 		return nil, fmt.Errorf("failed to parse update space response: %w", err)
 	}
-	return &space, nil
+	return space, nil
 }
 
 // DeleteSpace deletes a space by ID.
@@ -282,11 +334,11 @@ func (c *DocmostClient) CreateGroup(name, description string) (*Group, error) {
 		return nil, err
 	}
 
-	var group Group
-	if err := json.Unmarshal(respBody, &group); err != nil {
+	group, err := unmarshalResource[Group](respBody)
+	if err != nil {
 		return nil, fmt.Errorf("failed to parse create group response: %w", err)
 	}
-	return &group, nil
+	return group, nil
 }
 
 // GetGroup retrieves group info by ID.
@@ -298,11 +350,11 @@ func (c *DocmostClient) GetGroup(groupID string) (*Group, error) {
 		return nil, err
 	}
 
-	var group Group
-	if err := json.Unmarshal(respBody, &group); err != nil {
+	group, err := unmarshalResource[Group](respBody)
+	if err != nil {
 		return nil, fmt.Errorf("failed to parse group info response: %w", err)
 	}
-	return &group, nil
+	return group, nil
 }
 
 // UpdateGroup updates an existing group.
@@ -318,11 +370,11 @@ func (c *DocmostClient) UpdateGroup(groupID, name, description string) (*Group, 
 		return nil, err
 	}
 
-	var group Group
-	if err := json.Unmarshal(respBody, &group); err != nil {
+	group, err := unmarshalResource[Group](respBody)
+	if err != nil {
 		return nil, fmt.Errorf("failed to parse update group response: %w", err)
 	}
-	return &group, nil
+	return group, nil
 }
 
 // DeleteGroup deletes a group by ID.
