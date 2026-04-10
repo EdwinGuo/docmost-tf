@@ -102,31 +102,39 @@ func (r *SpaceResource) Create(ctx context.Context, req resource.CreateRequest, 
 		return
 	}
 
-	// Update with optional fields if specified
+	// Re-read after create to get the authoritative server state
+	freshSpace, err := r.client.GetSpace(space.ID)
+	if err != nil {
+		resp.Diagnostics.AddError("Failed to read space after creation", err.Error())
+		return
+	}
+
+	// Update boolean settings if specified — these aren't supported by the create API
 	needsUpdate := false
 	updates := map[string]interface{}{}
-	if !plan.DisablePublicSharing.IsNull() && !plan.DisablePublicSharing.IsUnknown() {
+	if !plan.DisablePublicSharing.IsNull() && !plan.DisablePublicSharing.IsUnknown() &&
+		plan.DisablePublicSharing.ValueBool() != freshSpace.DisablePublicSharing {
 		updates["disablePublicSharing"] = plan.DisablePublicSharing.ValueBool()
 		needsUpdate = true
 	}
-	if !plan.AllowViewerComments.IsNull() && !plan.AllowViewerComments.IsUnknown() {
+	if !plan.AllowViewerComments.IsNull() && !plan.AllowViewerComments.IsUnknown() &&
+		plan.AllowViewerComments.ValueBool() != freshSpace.AllowViewerComments {
 		updates["allowViewerComments"] = plan.AllowViewerComments.ValueBool()
 		needsUpdate = true
 	}
 
 	if needsUpdate {
-		_, err := r.client.UpdateSpace(space.ID, updates)
+		_, err := r.client.UpdateSpace(freshSpace.ID, updates)
 		if err != nil {
-			resp.Diagnostics.AddError("Failed to update space after creation", err.Error())
+			resp.Diagnostics.AddError("Failed to update space settings after creation", err.Error())
 			return
 		}
-	}
-
-	// Always re-read after create to get the authoritative state
-	freshSpace, err := r.client.GetSpace(space.ID)
-	if err != nil {
-		resp.Diagnostics.AddError("Failed to read space after creation", err.Error())
-		return
+		// Re-read again to get final state
+		freshSpace, err = r.client.GetSpace(freshSpace.ID)
+		if err != nil {
+			resp.Diagnostics.AddError("Failed to read space after update", err.Error())
+			return
+		}
 	}
 
 	r.mapSpaceToState(freshSpace, &plan)
