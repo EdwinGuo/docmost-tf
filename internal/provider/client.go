@@ -213,6 +213,22 @@ func (c *DocmostClient) CreateSpace(name, slug, description string) (*Space, err
 	return space, nil
 }
 
+// GetSpaceBySlug retrieves space info by slug.
+func (c *DocmostClient) GetSpaceBySlug(slug string) (*Space, error) {
+	body := map[string]string{"slug": slug}
+
+	respBody, err := c.DoRequest("/api/spaces/info", body)
+	if err != nil {
+		return nil, err
+	}
+
+	space, err := unmarshalResource[Space](respBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse space info response: %w", err)
+	}
+	return space, nil
+}
+
 // GetSpace retrieves space info by ID.
 func (c *DocmostClient) GetSpace(spaceID string) (*Space, error) {
 	body := map[string]string{"spaceId": spaceID}
