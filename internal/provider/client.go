@@ -228,13 +228,15 @@ func (c *DocmostClient) GetSpaceBySlug(slug string) (*Space, error) {
 		return nil, fmt.Errorf("failed to parse spaces list (raw: %s): %w", string(respBody), err)
 	}
 
+	var slugs []string
 	for _, s := range spaces {
+		slugs = append(slugs, s.Slug)
 		if strings.EqualFold(s.Slug, slug) {
 			return &s, nil
 		}
 	}
 
-	return nil, fmt.Errorf("space with slug %q not found", slug)
+	return nil, fmt.Errorf("space with slug %q not found (available slugs: %v, count: %d)", slug, slugs, len(spaces))
 }
 
 // extractSpaceList tries to extract a list of Space from a JSON response.
