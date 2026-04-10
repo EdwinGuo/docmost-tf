@@ -90,7 +90,14 @@ func (r *GroupResource) Create(ctx context.Context, req resource.CreateRequest, 
 		return
 	}
 
-	r.mapGroupToState(group, &plan)
+	// Re-read after create to get authoritative state
+	freshGroup, err := r.client.GetGroup(group.ID)
+	if err != nil {
+		resp.Diagnostics.AddError("Failed to read group after creation", err.Error())
+		return
+	}
+
+	r.mapGroupToState(freshGroup, &plan)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 

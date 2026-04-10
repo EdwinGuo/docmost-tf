@@ -115,15 +115,21 @@ func (r *SpaceResource) Create(ctx context.Context, req resource.CreateRequest, 
 	}
 
 	if needsUpdate {
-		updated, err := r.client.UpdateSpace(space.ID, updates)
+		_, err := r.client.UpdateSpace(space.ID, updates)
 		if err != nil {
 			resp.Diagnostics.AddError("Failed to update space after creation", err.Error())
 			return
 		}
-		space = updated
 	}
 
-	r.mapSpaceToState(space, &plan)
+	// Always re-read after create to get the authoritative state
+	freshSpace, err := r.client.GetSpace(space.ID)
+	if err != nil {
+		resp.Diagnostics.AddError("Failed to read space after creation", err.Error())
+		return
+	}
+
+	r.mapSpaceToState(freshSpace, &plan)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
